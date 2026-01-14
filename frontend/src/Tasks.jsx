@@ -5,7 +5,8 @@ function Tasks() {
   const [tasks, setTasks] = useState([]);
 
   useEffect(() => {
-    api.get('/tasks')
+    // Updated endpoint to match backend route change from /tasks to /api/tasks
+    api.get('/api/tasks')
       .then(res => setTasks(res.data))
       .catch(err => console.error(err));
   }, []);

@@ -5,36 +5,37 @@ DotNetEnv.Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
-
+// Configure JSON serialization to use camelCase
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        // Configure JSON serialization to use camelCase
-        // JavaScript convention is camelCase (isDone), C# convention is PascalCase (IsDone)
-        // Without this, frontend would receive IsDone but try to access isDone, causing errors
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
     });
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Add CORS policy to allow frontend to make requests
-// Without this, browsers will block requests from localhost:5173 to localhost:5000
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://localhost:3000")
+        policy.WithOrigins("http://localhost:5173", "http://localhost:5175", "http://localhost:3000")
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
     });
 });
 
+// Get connection string from environment variable or configuration
+var connectionString = Environment.GetEnvironmentVariable("CONNECTION_STRING") 
+    ?? builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? "Host=localhost;Port=5432;Database=taskmanager;Username=postgres;Password=postgres";
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(connectionString));
 
 var app = builder.Build();
-
 
 if (app.Environment.IsDevelopment())
 {

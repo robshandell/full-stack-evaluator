@@ -75,12 +75,43 @@ namespace TaskManager.API
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] TaskItem task)
+        public async Task<IActionResult> Create([FromBody] CreateTaskItemDto createDto)
         {
-            
-            _context.Tasks.Add(task);
-            await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(Get), new { id = task.Id }, task);
+            try
+            {
+                // Validate input - title cannot be empty
+                if (string.IsNullOrWhiteSpace(createDto.Title))
+                {
+                    return BadRequest(new { error = "Title is required" });
+                }
+
+                // For now, use userId from DTO (defaults to 1)
+                // TODO: In production, this would validate user exists and handle authentication
+                var task = new TaskItem
+                {
+                    Title = createDto.Title.Trim(), // Trim whitespace
+                    IsDone = false, // New tasks start as not done
+                    UserId = createDto.UserId
+                };
+
+                _context.Tasks.Add(task);
+                await _context.SaveChangesAsync();
+
+                // Return the created task as DTO
+                var taskDto = new TaskItemDto
+                {
+                    Id = task.Id,
+                    Title = task.Title,
+                    IsDone = task.IsDone,
+                    UserId = task.UserId
+                };
+
+                return CreatedAtAction(nameof(GetById), new { id = task.Id }, taskDto);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "An error occurred while creating the task", message = ex.Message });
+            }
         }
 
         [HttpPut("{id}")] 

@@ -114,29 +114,65 @@ namespace TaskManager.API
             }
         }
 
-        [HttpPut("{id}")] 
-        public async Task<IActionResult> Update(int id, [FromBody] TaskItem updated)
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, [FromBody] UpdateTaskItemDto updateDto)
         {
-            var task = await _context.Tasks.FindAsync(id);
-            if (task == null) return NotFound();
+            try
+            {
+                // Validate input
+                if (string.IsNullOrWhiteSpace(updateDto.Title))
+                {
+                    return BadRequest(new { error = "Title is required" });
+                }
 
-            task.Title = updated.Title;
-            task.IsDone = updated.IsDone;
-            await _context.SaveChangesAsync();
+                var task = await _context.Tasks.FindAsync(id);
+                if (task == null)
+                {
+                    return NotFound(new { error = $"Task with id {id} not found" });
+                }
 
-            return Ok(task);
+                // Update task properties
+                task.Title = updateDto.Title.Trim();
+                task.IsDone = updateDto.IsDone;
+                await _context.SaveChangesAsync();
+
+                // Return updated task as DTO
+                var taskDto = new TaskItemDto
+                {
+                    Id = task.Id,
+                    Title = task.Title,
+                    IsDone = task.IsDone,
+                    UserId = task.UserId
+                };
+
+                return Ok(taskDto);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "An error occurred while updating the task", message = ex.Message });
+            }
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var task = await _context.Tasks.FindAsync(id);
-            if (task == null) return NotFound();
+            try
+            {
+                var task = await _context.Tasks.FindAsync(id);
+                if (task == null)
+                {
+                    return NotFound(new { error = $"Task with id {id} not found" });
+                }
 
-            _context.Tasks.Remove(task);
-            await _context.SaveChangesAsync();
+                _context.Tasks.Remove(task);
+                await _context.SaveChangesAsync();
 
-            return NoContent();
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "An error occurred while deleting the task", message = ex.Message });
+            }
         }
     }
 }

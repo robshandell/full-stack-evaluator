@@ -21,41 +21,57 @@ namespace TaskManager.API
         [HttpGet]
         public async Task<IActionResult> Get()
         {
-            // Convert domain models to DTOs before returning
-            // This prevents exposing internal model structure
-            var tasks = await _context.Tasks
-                .Select(t => new TaskItemDto
-                {
-                    Id = t.Id,
-                    Title = t.Title,
-                    IsDone = t.IsDone,
-                    UserId = t.UserId
-                })
-                .ToListAsync();
-            
-            return Ok(tasks);
+            try
+            {
+                // Convert domain models to DTOs before returning
+                // This prevents exposing internal model structure
+                var tasks = await _context.Tasks
+                    .Select(t => new TaskItemDto
+                    {
+                        Id = t.Id,
+                        Title = t.Title,
+                        IsDone = t.IsDone,
+                        UserId = t.UserId
+                    })
+                    .ToListAsync();
+                
+                return Ok(tasks);
+            }
+            catch (Exception ex)
+            {
+                // Return 500 with error message if something goes wrong
+                // In production, you might want to log this and not expose the exception message
+                return StatusCode(500, new { error = "An error occurred while fetching tasks", message = ex.Message });
+            }
         }
 
         // Added GET by ID endpoint - useful for retrieving a single task
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var task = await _context.Tasks.FindAsync(id);
-            if (task == null)
+            try
             {
-                return NotFound();
+                var task = await _context.Tasks.FindAsync(id);
+                if (task == null)
+                {
+                    return NotFound(new { error = $"Task with id {id} not found" });
+                }
+
+                // Return as DTO
+                var taskDto = new TaskItemDto
+                {
+                    Id = task.Id,
+                    Title = task.Title,
+                    IsDone = task.IsDone,
+                    UserId = task.UserId
+                };
+
+                return Ok(taskDto);
             }
-
-            // Return as DTO
-            var taskDto = new TaskItemDto
+            catch (Exception ex)
             {
-                Id = task.Id,
-                Title = task.Title,
-                IsDone = task.IsDone,
-                UserId = task.UserId
-            };
-
-            return Ok(taskDto);
+                return StatusCode(500, new { error = "An error occurred while fetching the task", message = ex.Message });
+            }
         }
 
         [HttpPost]

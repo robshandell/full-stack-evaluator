@@ -6,6 +6,8 @@ function Tasks() {
   const [loading, setLoading] = useState(true); // Track loading state
   const [error, setError] = useState(null); // Track error state
   const [newTaskTitle, setNewTaskTitle] = useState(''); // Track new task input
+  const [editingTask, setEditingTask] = useState(null); // Track which task is being edited (task ID)
+  const [editTitle, setEditTitle] = useState(''); // Track edited title
 
   // Fetch tasks function - extracted so it can be reused
   const fetchTasks = async () => {
@@ -53,6 +55,54 @@ function Tasks() {
     }
   };
 
+  // Handle updating a task
+  const handleUpdate = async (taskId, updatedData) => {
+    try {
+      setError(null);
+      const response = await api.put(`/api/tasks/${taskId}`, updatedData);
+      // Update the task in the list
+      setTasks(tasks.map(task => task.id === taskId ? response.data : task));
+      setEditingTask(null); // Exit edit mode
+      setEditTitle(''); // Clear edit input
+    } catch (err) {
+      const errorMessage = err.response?.data?.error || err.message || 'Failed to update task';
+      setError(errorMessage);
+      console.error('Error updating task:', err);
+    }
+  };
+
+  // Toggle task completion status
+  const handleToggleComplete = async (task) => {
+    await handleUpdate(task.id, {
+      title: task.title,
+      isDone: !task.isDone
+    });
+  };
+
+  // Start editing a task
+  const startEditing = (task) => {
+    setEditingTask(task.id);
+    setEditTitle(task.title);
+  };
+
+  // Cancel editing
+  const cancelEditing = () => {
+    setEditingTask(null);
+    setEditTitle('');
+  };
+
+  // Save edited task
+  const saveEdit = async (taskId, currentIsDone) => {
+    if (!editTitle.trim()) {
+      setError('Task title cannot be empty');
+      return;
+    }
+    await handleUpdate(taskId, {
+      title: editTitle.trim(),
+      isDone: currentIsDone
+    });
+  };
+
   // Show loading message while fetching data
   if (loading) {
     return <div>Loading tasks...</div>;
@@ -84,8 +134,34 @@ function Tasks() {
 
       <ul>
         {tasks.map(task => (
-          <li key={task.id}>
-            {task.title} {task.isDone ? '✅' : '❌'}
+          <li key={task.id} style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {editingTask === task.id ? (
+              // Edit mode: show input field with Save/Cancel buttons
+              <>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  style={{ padding: '4px', flex: 1 }}
+                  autoFocus
+                />
+                <button onClick={() => saveEdit(task.id, task.isDone)} style={{ padding: '4px 8px' }}>Save</button>
+                <button onClick={cancelEditing} style={{ padding: '4px 8px' }}>Cancel</button>
+              </>
+            ) : (
+              // Display mode: show task with checkbox and edit button
+              <>
+                <input
+                  type="checkbox"
+                  checked={task.isDone}
+                  onChange={() => handleToggleComplete(task)}
+                />
+                <span style={{ textDecoration: task.isDone ? 'line-through' : 'none', flex: 1 }}>
+                  {task.title}
+                </span>
+                <button onClick={() => startEditing(task)} style={{ padding: '4px 8px' }}>Edit</button>
+              </>
+            )}
           </li>
         ))}
       </ul>

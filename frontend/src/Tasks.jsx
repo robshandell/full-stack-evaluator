@@ -103,6 +103,25 @@ function Tasks() {
     });
   };
 
+  // Handle deleting a task
+  const handleDelete = async (taskId) => {
+    // Confirm before deleting
+    if (!window.confirm('Are you sure you want to delete this task?')) {
+      return;
+    }
+
+    try {
+      setError(null);
+      await api.delete(`/api/tasks/${taskId}`);
+      // Remove task from the list
+      setTasks(tasks.filter(task => task.id !== taskId));
+    } catch (err) {
+      const errorMessage = err.response?.data?.error || err.message || 'Failed to delete task';
+      setError(errorMessage);
+      console.error('Error deleting task:', err);
+    }
+  };
+
   // Show loading message while fetching data
   if (loading) {
     return <div>Loading tasks...</div>;
@@ -149,7 +168,7 @@ function Tasks() {
                 <button onClick={cancelEditing} style={{ padding: '4px 8px' }}>Cancel</button>
               </>
             ) : (
-              // Display mode: show task with checkbox and edit button
+              // Display mode: show task with checkbox, edit button, and delete button
               <>
                 <input
                   type="checkbox"
@@ -160,6 +179,12 @@ function Tasks() {
                   {task.title}
                 </span>
                 <button onClick={() => startEditing(task)} style={{ padding: '4px 8px' }}>Edit</button>
+                <button 
+                  onClick={() => handleDelete(task.id)} 
+                  style={{ padding: '4px 8px', backgroundColor: '#ff4444', color: 'white', border: 'none' }}
+                >
+                  Delete
+                </button>
               </>
             )}
           </li>

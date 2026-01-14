@@ -1,12 +1,14 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using TaskManager.DTOs;
+using System.Threading.Tasks;
+using System.Linq;
+
 using TaskManager.Models;
 using TaskManager.Data;
-
+using TaskManager.DTOs;
 namespace TaskManager.API
 {
-    // Changed route from 'tasks' to 'api/tasks' for better REST API conventions
     [Route("api/tasks")]
     [ApiController]
     public class TasksController : ControllerBase
@@ -23,29 +25,24 @@ namespace TaskManager.API
         {
             try
             {
-                // Convert domain models to DTOs before returning
-                // This prevents exposing internal model structure
-                var tasks = await _context.Tasks
-                    .Select(t => new TaskItemDto
-                    {
-                        Id = t.Id,
-                        Title = t.Title,
-                        IsDone = t.IsDone,
-                        UserId = t.UserId
-                    })
-                    .ToListAsync();
+                var tasks = await _context.Tasks.ToListAsync();
+                // Convert to DTOs to avoid serialization issues
+                var taskDtos = tasks.Select(t => new TaskItemDto
+                {
+                    Id = t.Id,
+                    Title = t.Title,
+                    IsDone = t.IsDone,
+                    UserId = t.UserId
+                }).ToList();
                 
-                return Ok(tasks);
+                return Ok(taskDtos);
             }
             catch (Exception ex)
             {
-                // Return 500 with error message if something goes wrong
-                // In production, you might want to log this and not expose the exception message
                 return StatusCode(500, new { error = "An error occurred while fetching tasks", message = ex.Message });
             }
         }
 
-        // Added GET by ID endpoint - useful for retrieving a single task
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
@@ -56,8 +53,8 @@ namespace TaskManager.API
                 {
                     return NotFound(new { error = $"Task with id {id} not found" });
                 }
-
-                // Return as DTO
+                
+                // Convert to DTO to avoid serialization issues
                 var taskDto = new TaskItemDto
                 {
                     Id = task.Id,
@@ -65,7 +62,7 @@ namespace TaskManager.API
                     IsDone = task.IsDone,
                     UserId = task.UserId
                 };
-
+                
                 return Ok(taskDto);
             }
             catch (Exception ex)
@@ -75,29 +72,41 @@ namespace TaskManager.API
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] CreateTaskItemDto createDto)
+        public async Task<IActionResult> Create([FromBody] CreateTaskDto createDto)
         {
             try
             {
-                // Validate input - title cannot be empty
-                if (string.IsNullOrWhiteSpace(createDto.Title))
+                if (createDto == null || string.IsNullOrWhiteSpace(createDto.Title))
                 {
                     return BadRequest(new { error = "Title is required" });
                 }
 
-                // For now, use userId from DTO (defaults to 1)
-                // TODO: In production, this would validate user exists and handle authentication
+                // Get or create a default user if none exists
+                var user = await _context.Users.FirstOrDefaultAsync();
+                if (user == null)
+                {
+                    // Create a default user
+                    user = new User
+                    {
+                        Email = "default@example.com",
+                        PasswordHash = "default"
+                    };
+                    _context.Users.Add(user);
+                    await _context.SaveChangesAsync();
+                }
+
+                // Create the task
                 var task = new TaskItem
                 {
-                    Title = createDto.Title.Trim(), // Trim whitespace
-                    IsDone = false, // New tasks start as not done
-                    UserId = createDto.UserId
+                    Title = createDto.Title.Trim(),
+                    IsDone = false,
+                    UserId = user.Id
                 };
 
                 _context.Tasks.Add(task);
                 await _context.SaveChangesAsync();
-
-                // Return the created task as DTO
+                
+                // Return 201 Created with a DTO to avoid serialization issues with navigation properties
                 var taskDto = new TaskItemDto
                 {
                     Id = task.Id,
@@ -105,8 +114,8 @@ namespace TaskManager.API
                     IsDone = task.IsDone,
                     UserId = task.UserId
                 };
-
-                return CreatedAtAction(nameof(GetById), new { id = task.Id }, taskDto);
+                
+                return StatusCode(201, taskDto);
             }
             catch (Exception ex)
             {
@@ -114,13 +123,12 @@ namespace TaskManager.API
             }
         }
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] UpdateTaskItemDto updateDto)
+        [HttpPut("{id}")] 
+        public async Task<IActionResult> Update(int id, [FromBody] UpdateTaskDto updateDto)
         {
             try
             {
-                // Validate input
-                if (string.IsNullOrWhiteSpace(updateDto.Title))
+                if (updateDto == null || string.IsNullOrWhiteSpace(updateDto.Title))
                 {
                     return BadRequest(new { error = "Title is required" });
                 }
@@ -131,12 +139,11 @@ namespace TaskManager.API
                     return NotFound(new { error = $"Task with id {id} not found" });
                 }
 
-                // Update task properties
                 task.Title = updateDto.Title.Trim();
                 task.IsDone = updateDto.IsDone;
                 await _context.SaveChangesAsync();
 
-                // Return updated task as DTO
+                // Return DTO to avoid serialization issues
                 var taskDto = new TaskItemDto
                 {
                     Id = task.Id,
@@ -156,23 +163,13 @@ namespace TaskManager.API
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            try
-            {
-                var task = await _context.Tasks.FindAsync(id);
-                if (task == null)
-                {
-                    return NotFound(new { error = $"Task with id {id} not found" });
-                }
+            var task = await _context.Tasks.FindAsync(id);
+            if (task == null) return NotFound();
 
-                _context.Tasks.Remove(task);
-                await _context.SaveChangesAsync();
+            _context.Tasks.Remove(task);
+            await _context.SaveChangesAsync();
 
-                return NoContent();
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { error = "An error occurred while deleting the task", message = ex.Message });
-            }
+            return NoContent();
         }
     }
 }

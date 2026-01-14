@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from "./api/axios"
+import './Tasks.css';
 
 function Tasks() {
   const [tasks, setTasks] = useState([]);
@@ -128,68 +129,71 @@ function Tasks() {
   }
 
   return (
-    <div>
-      <h2>Tasks</h2>
+    <div className="tasks-container">
+      <h2>My Tasks</h2>
       
       {/* Display error message if there's an error */}
       {error && (
-        <div style={{ color: 'red', padding: '10px', marginBottom: '10px', border: '1px solid red' }}>
-          Error: {error}
-          <button onClick={() => setError(null)} style={{ marginLeft: '10px' }}>×</button>
+        <div className="error-message" role="alert">
+          {error}
+          <button onClick={() => setError(null)} className="close-error">×</button>
         </div>
       )}
 
       {/* Form to create new tasks */}
-      <form onSubmit={handleCreate} style={{ marginBottom: '20px' }}>
+      <form onSubmit={handleCreate} className="task-form">
         <input
           type="text"
           value={newTaskTitle}
           onChange={(e) => setNewTaskTitle(e.target.value)}
           placeholder="Enter a new task..."
-          style={{ padding: '8px', marginRight: '10px', width: '300px' }}
+          className="task-input"
         />
-        <button type="submit" style={{ padding: '8px 16px' }}>Add Task</button>
+        <button type="submit" className="btn btn-primary">Add Task</button>
       </form>
 
-      <ul>
-        {tasks.map(task => (
-          <li key={task.id} style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {editingTask === task.id ? (
-              // Edit mode: show input field with Save/Cancel buttons
-              <>
-                <input
-                  type="text"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  style={{ padding: '4px', flex: 1 }}
-                  autoFocus
-                />
-                <button onClick={() => saveEdit(task.id, task.isDone)} style={{ padding: '4px 8px' }}>Save</button>
-                <button onClick={cancelEditing} style={{ padding: '4px 8px' }}>Cancel</button>
-              </>
-            ) : (
-              // Display mode: show task with checkbox, edit button, and delete button
-              <>
-                <input
-                  type="checkbox"
-                  checked={task.isDone}
-                  onChange={() => handleToggleComplete(task)}
-                />
-                <span style={{ textDecoration: task.isDone ? 'line-through' : 'none', flex: 1 }}>
-                  {task.title}
-                </span>
-                <button onClick={() => startEditing(task)} style={{ padding: '4px 8px' }}>Edit</button>
-                <button 
-                  onClick={() => handleDelete(task.id)} 
-                  style={{ padding: '4px 8px', backgroundColor: '#ff4444', color: 'white', border: 'none' }}
-                >
-                  Delete
-                </button>
-              </>
-            )}
-          </li>
-        ))}
-      </ul>
+      {/* Tasks List */}
+      {tasks.length === 0 ? (
+        <p className="no-tasks">No tasks yet. Create one above!</p>
+      ) : (
+        <ul className="tasks-list">
+          {tasks.map(task => (
+            <li key={task.id} className={`task-item ${task.isDone ? 'completed' : ''}`}>
+              {editingTask === task.id ? (
+                // Edit mode: show input field with Save/Cancel buttons
+                <div className="edit-form">
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="task-input"
+                    autoFocus
+                  />
+                  <button onClick={() => saveEdit(task.id, task.isDone)} className="btn btn-save">Save</button>
+                  <button onClick={cancelEditing} className="btn btn-cancel">Cancel</button>
+                </div>
+              ) : (
+                // Display mode: show task with checkbox, edit button, and delete button
+                <>
+                  <div className="task-content">
+                    <input
+                      type="checkbox"
+                      checked={task.isDone}
+                      onChange={() => handleToggleComplete(task)}
+                      className="task-checkbox"
+                    />
+                    <span className="task-title">{task.title}</span>
+                  </div>
+                  <div className="task-actions">
+                    <button onClick={() => startEditing(task)} className="btn btn-edit">Edit</button>
+                    <button onClick={() => handleDelete(task.id)} className="btn btn-delete">Delete</button>
+                  </div>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
